@@ -13,6 +13,6 @@ module load anaconda
 cd $HOME/data/ravi/adaptive_duration_modification
 conda activate /work-zfs/avenka14/ravi/conda_envs/seq2seq_3.7
 
-python3.7 gru_conversion.py
+python3.7 main_gru.py
 
 conda deactivate
