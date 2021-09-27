@@ -183,7 +183,7 @@ def compute_dtw_path(model,
 
     """
 
-    prediction, attention = model.ar_decode(src, )
+    prediction, attention = model.ar_decode(src, sos_token)
 
     a = 1 / (attention.squeeze() + 1e-12)
     acc_mat = itk_obj.accumulated_cost_matrix(a)
@@ -319,7 +319,6 @@ if __name__ == "__main__":
     CLIP = 0.1
     LEN_LOSS_WT = 5
 
-    sos_token = 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('running on device: ', device)
 
@@ -330,7 +329,10 @@ if __name__ == "__main__":
 
     model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
     model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
-    
+
+    sos_token = start_end_tokens_world_80['<sos>']
+    sos_token = torch.from_numpy(np.expand_dims(sos_token.T, axis=0)).to(device)
+
 #%%
     
     # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
@@ -355,7 +357,9 @@ if __name__ == "__main__":
         energy, _ = extract_filterbank_features(src_wavfile, hp)
         
         energy_torch_cuda = torch.from_numpy(energy).to(device)
-        attention, cords_attn = compute_dtw_path(model, itk_obj, 
+        attention, cords_attn = compute_dtw_path(model, 
+                                                 sos_token, 
+                                                 itk_obj, 
                                                  energy_torch_cuda, 
                                                  slope=1.25, 
                                                  steps_limit=1)
@@ -445,7 +449,7 @@ if __name__ == "__main__":
         print(pred_len, tar_len, kl_div, sm.ratio())
         print(src_wavfile)
 
-    with open("/home/ravi/Desktop/VESUS/neutral_sad/transformer_kl_results.pkl", "wb") as f:
+    with open("/home/ravi/Desktop/CMU/voice_conversion/gru_kl_results.pkl", "wb") as f:
         pickle.dump({'kl':kl_array, 
                       'edit':eddist_array, 
                       'len_pred':len_pred_array}, f)

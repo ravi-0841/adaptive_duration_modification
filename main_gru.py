@@ -283,7 +283,7 @@ class Seq2Seq(nn.Module):
             #no teacher forcing, use predicted token
             input = output
 
-        return outputs[1:,:,:], attention[:,1:,:], pred_len
+        return outputs[1:,:,:], attention[:,1:,:]
 
 
 #%% Training and evaluation function definition
@@ -422,85 +422,86 @@ def evaluate(model, iterator, criterion, pad_signature, len_loss_wt):
     return epoch_reg_loss, epoch_len_loss, \
         epoch_loss, generated_seqs, generated_attn
 
-#%% Defining hyperparameters of the model
-BATCH_SIZE = 2  #128
-EMB_DIM = 80
-ENC_HID_DIM = 64 #512
-DEC_HID_DIM = 64 #512
-ENC_DROPOUT = 0.2
-DEC_DROPOUT = 0.2
-LEARNING_RATE = 0.00001
-PAD_IDX = 10
-MAXLEN = 1400
-PAD_SIGNATURE = PAD_IDX * EMB_DIM
-N_EPOCHS = 20
-CLIP = 0.1
-LEN_LOSS_WT = 5
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print('running on device: ', device)
-
-#%% Generating train, valid and test iterator
-train_data_iterator = LoadData(pkl_file='./data/VESUS/train_neutral_sad_world_mvn_5ms.pkl', 
-                                batch_size=BATCH_SIZE, device=device, 
-                                augment=True, padwith=PAD_IDX)
-valid_data_iterator = LoadData(pkl_file='./data/VESUS/valid_neutral_sad_world_mvn_5ms.pkl', 
-                                batch_size=1, device=device, 
-                                augment=False, padwith=PAD_IDX)
-
-print("Number of batches: {}".format(train_data_iterator.batch_count()))
-
-#%% Create dataloaders and model
-attn = Attention(ENC_HID_DIM, DEC_HID_DIM)
-enc = Encoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, ENC_DROPOUT, device)
-dec = Decoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
-
-model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
-model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
-#model.apply(init_weights)
-
-print(f'The model has {count_parameters(model):,} trainable parameters')
-
-#%% Optimizer and loss criterion
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-criterion = nn.MSELoss(reduction='none')
-
-#%% Training the model
-best_valid_loss = float('inf')
-
-for epoch in range(N_EPOCHS):
+if __name__ == '__main__':
+    #%% Defining hyperparameters of the model
+    BATCH_SIZE = 2  #128
+    EMB_DIM = 80
+    ENC_HID_DIM = 64 #512
+    DEC_HID_DIM = 64 #512
+    ENC_DROPOUT = 0.2
+    DEC_DROPOUT = 0.2
+    LEARNING_RATE = 0.00001
+    PAD_IDX = 10
+    MAXLEN = 1400
+    PAD_SIGNATURE = PAD_IDX * EMB_DIM
+    N_EPOCHS = 20
+    CLIP = 0.1
+    LEN_LOSS_WT = 5
     
-    start_time = time.time()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('running on device: ', device)
     
-    _, train_len_loss, train_loss, train_seqs, train_attn = train(model, train_data_iterator, 
-                                               optimizer, criterion, 
-                                               CLIP, PAD_SIGNATURE, LEN_LOSS_WT)
-    _, valid_len_loss, valid_loss, valid_seqs, valid_attn = evaluate(model, valid_data_iterator, 
-                                                  criterion, PAD_SIGNATURE, LEN_LOSS_WT)
-
-    end_time = time.time()
-
-    epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+    #%% Generating train, valid and test iterator
+    train_data_iterator = LoadData(pkl_file='./data/VESUS/train_neutral_sad_world_mvn_5ms.pkl', 
+                                    batch_size=BATCH_SIZE, device=device, 
+                                    augment=True, padwith=PAD_IDX)
+    valid_data_iterator = LoadData(pkl_file='./data/VESUS/valid_neutral_sad_world_mvn_5ms.pkl', 
+                                    batch_size=1, device=device, 
+                                    augment=False, padwith=PAD_IDX)
     
-    if np.mean(valid_loss) < best_valid_loss:
-        best_valid_loss = np.mean(valid_loss)
-        torch.save(model.state_dict(), './models/VESUS/gru-neutral-sad-vesus-model.pt')
+    print("Number of batches: {}".format(train_data_iterator.batch_count()))
     
-    train_len_loss = np.mean(train_len_loss)
-    train_loss = np.mean(train_loss)
-    valid_len_loss = np.mean(valid_len_loss)
-    valid_loss = np.mean(valid_loss)
-    print(f'Epoch: {epoch+1:02} | Time: {epoch_mins}m {epoch_secs}s')
-    print(f'\t |Train Length Loss: {train_len_loss:.6f} \t Train Loss: {train_loss:.6f}|')
-    print(f'\t |Val. Length Loss: {valid_len_loss:.6f} \t Val. Loss: {valid_loss:.6f}|')
+    #%% Create dataloaders and model
+    attn = Attention(ENC_HID_DIM, DEC_HID_DIM)
+    enc = Encoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, ENC_DROPOUT, device)
+    dec = Decoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
     
-    sys.stdout.flush()
-
-#%% Testing
-model.load_state_dict(torch.load('./models/VESUS/gru-neutral-angry-vesus-model.pt'))
-
-_, test_len_loss, test_loss, test_seqs, test_attn = evaluate(model, test_data_iterator, criterion, PAD_SIGNATURE)
-with open('./cmu_test_pred.pkl', 'wb') as f:
-    joblib.dump({'test_len_loss':test_len_loss, 'test_loss':test_loss}, f)
-
-print(f'|Test Length Loss: {np.mean(test_len_loss):.6f} Test Loss: {np.mean(test_loss):.6f} |')
+    model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
+    model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
+    #model.apply(init_weights)
+    
+    print(f'The model has {count_parameters(model):,} trainable parameters')
+    
+    #%% Optimizer and loss criterion
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    criterion = nn.MSELoss(reduction='none')
+    
+    #%% Training the model
+    best_valid_loss = float('inf')
+    
+    for epoch in range(N_EPOCHS):
+        
+        start_time = time.time()
+        
+        _, train_len_loss, train_loss, train_seqs, train_attn = train(model, train_data_iterator, 
+                                                   optimizer, criterion, 
+                                                   CLIP, PAD_SIGNATURE, LEN_LOSS_WT)
+        _, valid_len_loss, valid_loss, valid_seqs, valid_attn = evaluate(model, valid_data_iterator, 
+                                                      criterion, PAD_SIGNATURE, LEN_LOSS_WT)
+    
+        end_time = time.time()
+    
+        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+        
+        if np.mean(valid_loss) < best_valid_loss:
+            best_valid_loss = np.mean(valid_loss)
+            torch.save(model.state_dict(), './models/VESUS/gru-neutral-sad-vesus-model.pt')
+        
+        train_len_loss = np.mean(train_len_loss)
+        train_loss = np.mean(train_loss)
+        valid_len_loss = np.mean(valid_len_loss)
+        valid_loss = np.mean(valid_loss)
+        print(f'Epoch: {epoch+1:02} | Time: {epoch_mins}m {epoch_secs}s')
+        print(f'\t |Train Length Loss: {train_len_loss:.6f} \t Train Loss: {train_loss:.6f}|')
+        print(f'\t |Val. Length Loss: {valid_len_loss:.6f} \t Val. Loss: {valid_loss:.6f}|')
+        
+        sys.stdout.flush()
+    
+    #%% Testing
+    # model.load_state_dict(torch.load('./models/VESUS/gru-neutral-angry-vesus-model.pt'))
+    
+    # _, test_len_loss, test_loss, test_seqs, test_attn = evaluate(model, test_data_iterator, criterion, PAD_SIGNATURE)
+    # with open('./cmu_test_pred.pkl', 'wb') as f:
+    #     joblib.dump({'test_len_loss':test_len_loss, 'test_loss':test_loss}, f)
+    
+    # print(f'|Test Length Loss: {np.mean(test_len_loss):.6f} Test Loss: {np.mean(test_loss):.6f} |')
