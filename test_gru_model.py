@@ -30,10 +30,18 @@ import joblib
 import pylab
 import logging
 import scipy.io.wavfile as scwav
+import pyworld as pw
+import scipy.signal as scisig
+import librosa
+import os
+import edit_distance
 
+from glob import glob
+from sklearn.metrics import pairwise_distances
 from hparams import Hparams
 from load_data import LoadData
 from main_gru import Encoder, Decoder, Attention, Seq2Seq
+from itakura_parallelogram import ItakuraParallelogram
 from utils import count_parameters, epoch_time
 
 #%%
@@ -145,7 +153,8 @@ def extract_filterbank_features(wavfile: str, hparams: Hparams):
     return np.expand_dims(energy.T, axis=0), (f0, sp, ap)
 
 #%%
-def compute_dtw_path(model: TrainingEval, 
+def compute_dtw_path(model, 
+                     sos_token, 
                      itk_obj: ItakuraParallelogram, 
                      src: np.ndarray, 
                      slope: float, 
@@ -174,7 +183,7 @@ def compute_dtw_path(model: TrainingEval,
 
     """
 
-    prediction, attention = model.test_decode(src, slope, itakura_object=itk_obj)
+    prediction, attention = model.ar_decode(src, )
 
     a = 1 / (attention.squeeze() + 1e-12)
     acc_mat = itk_obj.accumulated_cost_matrix(a)
@@ -295,65 +304,42 @@ if __name__ == "__main__":
     
     itk_obj = ItakuraParallelogram()
     
-    EMBED_DIM = 80
-    HIDDEN_DIM = 256  #256
-    ENC_LAYERS = 6
-    DEC_LAYERS = 6
-    ENC_HEADS = 4
-    DEC_HEADS = 4
-    ENC_PF_DIM = 256  #256
-    DEC_PF_DIM = 256  #256
+    #%% Defining hyperparameters of the model
+    BATCH_SIZE = 1  #128
+    EMB_DIM = 80
+    ENC_HID_DIM = 64 #512
+    DEC_HID_DIM = 64 #512
     ENC_DROPOUT = 0.2
     DEC_DROPOUT = 0.2
-    LEARNING_RATE = 0.0001 #0.0001 for cmu
+    LEARNING_RATE = 0.00001
     PAD_IDX = 10
     MAXLEN = 1400
+    PAD_SIGNATURE = PAD_IDX * EMB_DIM
+    N_EPOCHS = 20
     CLIP = 0.1
-    BATCH_SIZE = 1
-    STEPS_LIMIT = 1
-    SLOPE = 1.25
-    PAD_SIGNATURE = PAD_IDX * EMBED_DIM
-    
+    LEN_LOSS_WT = 5
+
+    sos_token = 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('running on device: ', device)
 
-    enc = Encoder(EMBED_DIM, 
-                  HIDDEN_DIM, 
-                  ENC_LAYERS, 
-                  ENC_HEADS, 
-                  ENC_PF_DIM, 
-                  ENC_DROPOUT, 
-                  device, 
-                  pos_encoding = True, 
-                  max_length = MAXLEN)
-    dec = Decoder(EMBED_DIM, 
-                  HIDDEN_DIM, 
-                  DEC_LAYERS, 
-                  DEC_HEADS, 
-                  DEC_PF_DIM, 
-                  DEC_DROPOUT, 
-                  device, 
-                  pos_encoding = True, 
-                  max_length = MAXLEN)
-    
-    model = Seq2Seq(enc, dec, PAD_SIGNATURE, device).to(device)
+    #%% Load the appropriate model
+    attn = Attention(ENC_HID_DIM, DEC_HID_DIM)
+    enc = Encoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, ENC_DROPOUT, device)
+    dec = Decoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
 
-    train_eval = TrainingEval(model, LEARNING_RATE, CLIP, 
-                                    device, PAD_SIGNATURE, MAXLEN)
-
-    train_eval.model.load_state_dict(torch.load('./models/VESUS/layers_6_hid_256-vesus-neutral-sad-nomask-transformer-model-5ms.pt'))
+    model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
+    model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
     
 #%%
     
-    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
-    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/sad/", "*.wav")))
+    # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
+    # valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/sad/", "*.wav")))
 
-    # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
-    # valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
+    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
+    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
 
-    output_folder       = "/home/ravi/Desktop/VESUS/neutral_sad/transformer_model_{}_{}-{}-{}/".format(ENC_LAYERS, 
-                                                                                                      HIDDEN_DIM, 
-                                                                                                      SLOPE, 
-                                                                                                      STEPS_LIMIT)
+    output_folder       = "/home/ravi/Desktop/CMU/voice_conversion/gru_model/"
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
@@ -362,22 +348,22 @@ if __name__ == "__main__":
     len_pred_array      = list()
     
     for (src_wavfile, tar_wavfile) in tqdm(zip(valid_src_folder, valid_tar_folder)):
-        
+
         # src_wavfile = '/home/ravi/Downloads/Emo-Conv/neutral-angry/valid/neutral/233.wav'
-        
+
         (src_f0, src_sp, src_ap) = extract_world_features(src_wavfile, hp)
         energy, _ = extract_filterbank_features(src_wavfile, hp)
         
         energy_torch_cuda = torch.from_numpy(energy).to(device)
-        attention, cords_attn = compute_dtw_path(train_eval, itk_obj, 
+        attention, cords_attn = compute_dtw_path(model, itk_obj, 
                                                  energy_torch_cuda, 
-                                                 slope=SLOPE, 
-                                                 steps_limit=STEPS_LIMIT)
+                                                 slope=1.25, 
+                                                 steps_limit=1)
         prob_cords_attn = path_histogram(cords_attn)
         # print('Attention model ', prob_cords_attn)
-    
+
         new_sp, new_f0, new_ap = organize_by_path(src_sp, src_f0, src_ap, cords_attn)
-        
+
         # pylab.figure()
         # pylab.subplot(121)
         # pylab.imshow(np.log10(attention.squeeze() + 1e-10))
@@ -386,7 +372,7 @@ if __name__ == "__main__":
 
         # pylab.title('Attention map and DTW path')
         # pylab.xlabel('source sequence'), pylab.ylabel('target sequence')
-        
+
         pylab.subplot(221)
         pylab.imshow(np.log10(src_sp.T ** 2)), pylab.title('input spectrum')
         pylab.subplot(222)
@@ -431,7 +417,7 @@ if __name__ == "__main__":
         mask = (1 - mask) * 1e10
         cost += mask
         acc_mat = itk_obj.accumulated_cost_matrix(cost)
-        cords_dtw = itk_obj.return_constrained_path(acc_mat, steps_limit=STEPS_LIMIT)
+        cords_dtw = itk_obj.return_constrained_path(acc_mat, steps_limit=1)
         prob_cords_dtw = path_histogram(cords_dtw)
         # print('DTW model ', prob_cords_dtw)
 
@@ -466,29 +452,4 @@ if __name__ == "__main__":
         f.close()
 
 
-#%% Defining hyperparameters of the model
-BATCH_SIZE = 2  #128
-EMB_DIM = 80
-ENC_HID_DIM = 64 #512
-DEC_HID_DIM = 64 #512
-ENC_DROPOUT = 0.2
-DEC_DROPOUT = 0.2
-LEARNING_RATE = 0.00001
-PAD_IDX = 10
-MAXLEN = 1400
-PAD_SIGNATURE = PAD_IDX * EMB_DIM
-N_EPOCHS = 20
-CLIP = 0.1
-LEN_LOSS_WT = 5
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print('running on device: ', device)
-
-#%% Load the appropriate model
-attn = Attention(ENC_HID_DIM, DEC_HID_DIM)
-enc = Encoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, ENC_DROPOUT, device)
-dec = Decoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
-
-model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
-model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
 

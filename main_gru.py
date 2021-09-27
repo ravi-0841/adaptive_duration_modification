@@ -197,7 +197,7 @@ class Seq2Seq(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
         self.device = device
-        self..maxlen = maxlen
+        self.maxlen = maxlen
         
     def forward(self, src, trg, teacher_forcing_ratio = 0.8):
         
@@ -279,17 +279,13 @@ class Seq2Seq(nn.Module):
             
             #place attn in attention matrix
             attention = torch.cat((attention, attn), dim = 1)
-            
-            #decide if we are going to use teacher forcing or not
-            teacher_force = random.random() < teacher_forcing_ratio
-            
-            #if teacher forcing, use actual next token as next input
-            #if not, use predicted token
+
+            #no teacher forcing, use predicted token
             input = output
 
         return outputs[1:,:,:], attention[:,1:,:], pred_len
-        
-    
+
+
 #%% Training and evaluation function definition
 def train(model, iterator, optimizer, criterion, clip, 
           pad_signature, len_loss_wt):
