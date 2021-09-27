@@ -455,10 +455,10 @@ for epoch in range(N_EPOCHS):
     sys.stdout.flush()
 
 #%% Testing
-#model.load_state_dict(torch.load('./models/VESUS/gru-neutral-angry-vesus-model.pt'))
-#
-#_, test_len_loss, test_loss, test_seqs, test_attn = evaluate(model, test_data_iterator, criterion, PAD_SIGNATURE)
-#with open('./cmu_test_pred.pkl', 'wb') as f:
-#    joblib.dump({'test_len_loss':test_len_loss, 'test_loss':test_loss}, f)
-#
-#print(f'|Test Length Loss: {np.mean(test_len_loss):.6f} Test Loss: {np.mean(test_loss):.6f} |')
+model.load_state_dict(torch.load('./models/VESUS/gru-neutral-angry-vesus-model.pt'))
+
+_, test_len_loss, test_loss, test_seqs, test_attn = evaluate(model, test_data_iterator, criterion, PAD_SIGNATURE)
+with open('./cmu_test_pred.pkl', 'wb') as f:
+    joblib.dump({'test_len_loss':test_len_loss, 'test_loss':test_loss}, f)
+
+print(f'|Test Length Loss: {np.mean(test_len_loss):.6f} Test Loss: {np.mean(test_loss):.6f} |')

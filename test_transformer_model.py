@@ -290,10 +290,10 @@ if __name__ == "__main__":
     
     EMBED_DIM = 80
     HIDDEN_DIM = 256  #256
-    ENC_LAYERS = 10
-    DEC_LAYERS = 10
-    ENC_HEADS = 1
-    DEC_HEADS = 1
+    ENC_LAYERS = 6
+    DEC_LAYERS = 6
+    ENC_HEADS = 4
+    DEC_HEADS = 4
     ENC_PF_DIM = 256  #256
     DEC_PF_DIM = 256  #256
     ENC_DROPOUT = 0.2
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     MAXLEN = 1400
     CLIP = 0.1
     BATCH_SIZE = 1
-    STEPS_LIMIT = 3
+    STEPS_LIMIT = 1
     SLOPE = 1.25
     PAD_SIGNATURE = PAD_IDX * EMBED_DIM
     
@@ -333,17 +333,17 @@ if __name__ == "__main__":
     train_eval = TrainingEval(model, LEARNING_RATE, CLIP, 
                                     device, PAD_SIGNATURE, MAXLEN)
 
-    train_eval.model.load_state_dict(torch.load('./models/CMU/layers_10_hid_256-cmu-transformer-model-5ms.pt'))
+    train_eval.model.load_state_dict(torch.load('./models/VESUS/layers_6_hid_256-vesus-neutral-sad-nomask-transformer-model-5ms.pt'))
     
 #%%
     
-    # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-angry/test/neutral/", "*.wav")))
-    # valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-angry/test/angry/", "*.wav")))
+    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
+    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/sad/", "*.wav")))
 
-    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/pytorch-speech-transformer/data/CMU-ARCTIC/test/source/", "*.wav")))
-    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/pytorch-speech-transformer/data/CMU-ARCTIC/test/target/", "*.wav")))
+    # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
+    # valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
 
-    output_folder       = "/home/ravi/Desktop/CMU/voice_conversion/transformer_model_{}_{}-{}-{}/".format(ENC_LAYERS, 
+    output_folder       = "/home/ravi/Desktop/VESUS/neutral_sad/transformer_model_{}_{}-{}-{}/".format(ENC_LAYERS, 
                                                                                                       HIDDEN_DIM, 
                                                                                                       SLOPE, 
                                                                                                       STEPS_LIMIT)
@@ -452,7 +452,7 @@ if __name__ == "__main__":
         print(pred_len, tar_len, kl_div, sm.ratio())
         print(src_wavfile)
 
-    with open("/home/ravi/Desktop/CMU/voice_conversion/transformer_kl_results_steps{}.pkl".format(str(STEPS_LIMIT)), "wb") as f:
+    with open("/home/ravi/Desktop/VESUS/neutral_sad/transformer_kl_results.pkl", "wb") as f:
         pickle.dump({'kl':kl_array, 
                       'edit':eddist_array, 
                       'len_pred':len_pred_array}, f)
