@@ -379,7 +379,8 @@ if __name__ == "__main__":
 
         # pylab.title('Attention map and DTW path')
         # pylab.xlabel('source sequence'), pylab.ylabel('target sequence')
-        
+
+        #%%
         pylab.subplot(221)
         pylab.imshow(np.log10(src_sp.T ** 2)), pylab.title('input spectrum')
         pylab.subplot(222)
@@ -404,9 +405,9 @@ if __name__ == "__main__":
     
         window_samples = int(16000 * hp.hop_size)
         src_mfc = librosa.feature.mfcc(y=src, sr=fs, hop_length=window_samples, 
-                                       win_length=window_samples, n_fft=1024, n_mels=128)
+                                        win_length=window_samples, n_fft=1024, n_mels=128)
         tar_mfc = librosa.feature.mfcc(y=tar, sr=fs, hop_length=window_samples, 
-                                       win_length=window_samples, n_fft=1024, n_mels=128)
+                                        win_length=window_samples, n_fft=1024, n_mels=128)
 
         # Unconstrained DTW mechanism
         cost = pairwise_distances(src_mfc.T, tar_mfc.T, metric='cosine')
@@ -458,7 +459,7 @@ if __name__ == "__main__":
                       'len_pred':len_pred_array}, f)
         f.close()
 
-#%%
+#%% Standalone testing
     
     # wavfile = '/home/ravi/Downloads/Emo-Conv/neutral-angry/valid/neutral/233.wav'
     

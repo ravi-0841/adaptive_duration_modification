@@ -169,7 +169,7 @@ def compute_prediction(model,
     itk_obj : ItakuraParallelogram
        class containing itakura mask function and dtw path
     src : np.ndarray
-        shape = (1, timestamps, dim)
+        shape = (timestamps, 1, dim)
         output of get_features function
     slope : float
         Masking slope
@@ -184,11 +184,12 @@ def compute_prediction(model,
     """
 
     prediction, attention = model.ar_decode(src, sos_token)
-
-    # a = 1 / (attention.squeeze() + 1e-12)
-    # acc_mat = itk_obj.accumulated_cost_matrix(a)
-    # path = itk_obj.return_constrained_path(a, steps_limit=steps_limit)
-    return attention, prediction
+    
+    itk_obj.itakura_mask(src.shape[0], prediction.shape[0], slope)
+    a = 1 / (attention.squeeze() + 1e-12)
+    acc_mat = itk_obj.accumulated_cost_matrix(a)
+    path = itk_obj.return_constrained_path(acc_mat, steps_limit=steps_limit)
+    return attention, path
 
 #%%
 def organize_by_path(sp: np.ndarray, f0: np.ndarray, 
@@ -333,8 +334,7 @@ if __name__ == "__main__":
     sos_token = np.asarray(start_end_tokens_world_80['<sos>'], np.float32)
     sos_token = torch.from_numpy(np.expand_dims(sos_token.T, axis=0)).to(device)
 
-#%%
-    
+    #%% Running the model for each file in test set
     valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
     valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/sad/", "*.wav")))
 
@@ -350,108 +350,117 @@ if __name__ == "__main__":
     len_pred_array      = list()
     
     for (src_wavfile, tar_wavfile) in tqdm(zip(valid_src_folder, valid_tar_folder)):
-
-        # src_wavfile = '/home/ravi/Downloads/Emo-Conv/neutral-angry/valid/neutral/233.wav'
-
-        (src_f0, src_sp, src_ap) = extract_world_features(src_wavfile, hp)
-        energy, _ = extract_filterbank_features(src_wavfile, hp)
         
-        energy_torch_cuda = torch.from_numpy(np.transpose(energy, [1,0,2])).to(device)
-        attention, prediction = compute_prediction(model, 
-                                                 sos_token, 
-                                                 itk_obj, 
-                                                 energy_torch_cuda, 
-                                                 slope=1.25, 
-                                                 steps_limit=1)
-        # prob_cords_attn = path_histogram(cords_attn)
-        # print('Attention model ', prob_cords_attn)
+        try:
 
-        # new_sp, new_f0, new_ap = organize_by_path(src_sp, src_f0, src_ap, cords_attn)
-
-        # pylab.figure()
-        # pylab.subplot(121)
-        # pylab.imshow(np.log10(attention.squeeze() + 1e-10))
-        # pylab.plot(cords_attn[0,:], cords_attn[1,:], 'r-', linewidth=2.5)
-        # pylab.axis('off')
-
-        # pylab.title('Attention map and DTW path')
-        # pylab.xlabel('source sequence'), pylab.ylabel('target sequence')
-
-        # pylab.subplot(221)
-        # pylab.imshow(np.log10(src_sp.T ** 2)), pylab.title('input spectrum')
-        # pylab.subplot(222)
-        # pylab.imshow(np.log10(new_sp.T ** 2)), pylab.title('modified spectrum')
-        # pylab.subplot(223)
-        # pylab.imshow(np.log10(attention.squeeze() + 1e-10))
-        # pylab.plot(cords_attn[0,:], cords_attn[1,:], 'r-'), pylab.title('Attention with DTW path')
-        
-        # speech = pw.synthesize(new_f0, new_sp, new_ap, 16000, frame_period=int(1000*hp.hop_size))
-        # speech = -0.5 + ((speech - np.min(speech)) / (np.max(speech) - np.min(speech)))
-        # speech = speech - np.mean(speech)
-        # scwav.write(output_folder+os.path.basename(src_wavfile), 
-        #             16000, np.asarray(speech, np.float32))
-
-
-        # DTW mechanism    
-        fs, src = scwav.read(src_wavfile)
-        src = np.asarray(src, np.float64)
+            (src_f0, src_sp, src_ap) = extract_world_features(src_wavfile, hp)
+            energy, _ = extract_filterbank_features(src_wavfile, hp)
+            
+            energy_torch_cuda = torch.from_numpy(np.transpose(energy, [1,0,2])).to(device)
+            attention, cords_attn = compute_prediction(model, 
+                                                     sos_token, 
+                                                     itk_obj, 
+                                                     energy_torch_cuda, 
+                                                     slope=1e10, 
+                                                     steps_limit=3)
+            prob_cords_attn = path_histogram(cords_attn)
+            # print('Attention model ', prob_cords_attn)
     
-        fs, tar = scwav.read(tar_wavfile)
-        tar = np.asarray(tar, np.float64)
+            new_sp, new_f0, new_ap = organize_by_path(src_sp, src_f0, src_ap, cords_attn)
     
-        window_samples = int(16000 * hp.hop_size)
-        src_mfc = librosa.feature.mfcc(y=src, sr=fs, hop_length=window_samples, 
-                                        win_length=window_samples, n_fft=1024, n_mels=128)
-        tar_mfc = librosa.feature.mfcc(y=tar, sr=fs, hop_length=window_samples, 
-                                        win_length=window_samples, n_fft=1024, n_mels=128)
-
-        # Unconstrained DTW mechanism
-        # cost = pairwise_distances(src_mfc.T, tar_mfc.T, metric='cosine')
-        # acc_cost, cords = librosa.sequence.dtw(X=src_mfc, Y=tar_mfc, metric='cosine')
-        # cords = np.flipud(cords)
-
-        # pylab.subplot(224)
-        # pylab.imshow(cost.T)
-        # pylab.plot(cords[:,0], cords[:,1], 'r-'), pylab.title('Real DTW (using target)')
-        # pylab.suptitle(os.path.basename(src_wavfile)[:-4])
-
-        # Constrained DTW mechanism
-        # cost = pairwise_distances(tar_mfc.T, src_mfc.T, metric='cosine')
-        # mask = itk_obj.itakura_mask(src_mfc.shape[1], tar_mfc.shape[1], max_slope=1.25)
-        # mask = (1 - mask) * 1e10
-        # cost += mask
-        # acc_mat = itk_obj.accumulated_cost_matrix(cost)
-        # cords_dtw = itk_obj.return_constrained_path(acc_mat, steps_limit=1)
-        # prob_cords_dtw = path_histogram(cords_dtw)
-        # print('DTW model ', prob_cords_dtw)
-
-        # pylab.subplot(224)
-        # pylab.subplot(122)
-        # pylab.imshow(np.log10(1/pairwise_distances(tar_mfc.T, src_mfc.T, metric='cosine')))
-        # pylab.plot(cords_dtw[0,:], cords_dtw[1,:], 'r-')
-        # pylab.title('Real DTW (using target)')
-        # pylab.suptitle(os.path.basename(src_wavfile)[:-4])
-
-        # pylab.savefig(output_folder+os.path.basename(src_wavfile)[:-4]+'.png')
-        # pylab.close()
+            # pylab.figure()
+            # pylab.subplot(121)
+            # pylab.imshow(np.log10(attention.squeeze() + 1e-10))
+            # pylab.plot(cords_attn[0,:], cords_attn[1,:], 'r-', linewidth=2.5)
+            # pylab.axis('off')
+    
+            # pylab.title('Attention map and DTW path')
+            # pylab.xlabel('source sequence'), pylab.ylabel('target sequence')
+    
+            pylab.subplot(221)
+            pylab.imshow(np.log10(src_sp.T ** 2)), pylab.title('input spectrum')
+            pylab.subplot(222)
+            pylab.imshow(np.log10(new_sp.T ** 2)), pylab.title('modified spectrum')
+            pylab.subplot(223)
+            pylab.imshow(np.log10(attention.squeeze() + 1e-10))
+            pylab.plot(cords_attn[0,:], cords_attn[1,:], 'r-'), pylab.title('Attention with DTW path')
+            
+            speech = pw.synthesize(new_f0, new_sp, new_ap, 16000, frame_period=int(1000*hp.hop_size))
+            speech = -0.5 + ((speech - np.min(speech)) / (np.max(speech) - np.min(speech)))
+            speech = speech - np.mean(speech)
+            scwav.write(output_folder+os.path.basename(src_wavfile), 
+                        16000, np.asarray(speech, np.float32))
+    
+            # DTW mechanism    
+            fs, src = scwav.read(src_wavfile)
+            src = np.asarray(src, np.float64)
+    
+            fs, tar = scwav.read(tar_wavfile)
+            tar = np.asarray(tar, np.float64)
         
-        pred_len = prediction.shape[0]/src_sp.shape[0]
-        tar_len = tar_mfc.shape[1]/src_mfc.shape[1]
-        len_pred_array.append(np.abs(tar_len - pred_len))
-        # kl_div = compute_symmetric_KL(prob_cords_attn, prob_cords_dtw)
-        # kl_array.append(kl_div)
+            window_samples = int(16000 * hp.hop_size)
+            src_mfc = librosa.feature.mfcc(y=src, sr=fs, hop_length=window_samples, 
+                                            win_length=window_samples, n_fft=1024, n_mels=128)
+            tar_mfc = librosa.feature.mfcc(y=tar, sr=fs, hop_length=window_samples, 
+                                            win_length=window_samples, n_fft=1024, n_mels=128)
+    
+            # Unconstrained DTW mechanism
+            cost = pairwise_distances(src_mfc.T, tar_mfc.T, metric='cosine')
+            acc_cost, cords = librosa.sequence.dtw(X=src_mfc, Y=tar_mfc, metric='cosine')
+            cords = np.flipud(cords)
+    
+            pylab.subplot(224)
+            pylab.imshow(cost.T)
+            pylab.plot(cords[:,0], cords[:,1], 'r-'), pylab.title('Real DTW (using target)')
+            pylab.suptitle(os.path.basename(src_wavfile)[:-4])
+    
+            # Constrained DTW mechanism
+            cost = pairwise_distances(tar_mfc.T, src_mfc.T, metric='cosine')
+            mask = itk_obj.itakura_mask(src_mfc.shape[1], tar_mfc.shape[1], max_slope=1.25)
+            mask = (1 - mask) * 1e10
+            cost += mask
+            acc_mat = itk_obj.accumulated_cost_matrix(cost)
+            cords_dtw = itk_obj.return_constrained_path(acc_mat, steps_limit=1)
+            prob_cords_dtw = path_histogram(cords_dtw)
+            # print('DTW model ', prob_cords_dtw)
+    
+            # pylab.subplot(224)
+            # pylab.subplot(122)
+            # pylab.imshow(np.log10(1/pairwise_distances(tar_mfc.T, src_mfc.T, metric='cosine')))
+            # pylab.plot(cords_dtw[0,:], cords_dtw[1,:], 'r-')
+            # pylab.title('Real DTW (using target)')
+            # pylab.suptitle(os.path.basename(src_wavfile)[:-4])
+    
+            pylab.savefig(output_folder+os.path.basename(src_wavfile)[:-4]+'.png')
+            pylab.close()
+            
+            pred_len = tar_mfc.shape[0]/src_sp.shape[0]
+            tar_len = tar_mfc.shape[1]/src_mfc.shape[1]
+            len_pred_array.append(np.abs(tar_len - pred_len))
+            kl_div = compute_symmetric_KL(prob_cords_attn, prob_cords_dtw)
+            kl_array.append(kl_div)
+            
+            attn_code = path_code(cords_attn)
+            dtw_code = path_code(cords_dtw)
+            sm = edit_distance.SequenceMatcher(a=dtw_code, b=attn_code)
+            eddist_array.append(sm.ratio())
+            
+            # print(pred_len, tar_len, kl_div, sm.ratio())
+            print('\n', src_wavfile)
         
-        # attn_code = path_code(cords_attn)
-        # dtw_code = path_code(cords_dtw)
-        # sm = edit_distance.SequenceMatcher(a=dtw_code, b=attn_code)
-        # eddist_array.append(sm.ratio())
-        
-        # print(pred_len, tar_len, kl_div, sm.ratio())
-        print(src_wavfile)
+        except Exception as ex:
+            print(ex)
+            pass
 
     with open("/home/ravi/Desktop/VESUS/neutral_sad/gru_results.pkl", "wb") as f:
-        pickle.dump({'len_pred':len_pred_array}, f)
+        pickle.dump({'len_pred':len_pred_array, 
+                     'kl':kl_array, 
+                     'edit':eddist_array}, f)
         f.close()
+
+
+
+
 
 
 

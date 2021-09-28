@@ -233,13 +233,13 @@ class ItakuraParallelogram(object):
         cost_mat : array-like, shape = (n_timestamps_2, n_timestamps_1)
             Cost matrix.
         region : None or tuple, shape = (2, n_timestamps_1) (default = None)
-            Constraint region. If None, there is no contraint region.
+            Constraint region. If None, there is no constraint region.
             If array-like, the first row indicates the starting indices (included)
             and the second row the ending indices (excluded) of the valid rows
             for each column.
         Returns
         -------
-        acc_cost_mat : array, shape = (n_timestamps_1, n_timestamps_2)
+        acc_cost_mat : array, shape = (n_timestamps_2, n_timestamps_1)
             Accumulated cost matrix.
         """
         cost_mat = cost_mat.T
