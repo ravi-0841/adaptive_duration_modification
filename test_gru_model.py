@@ -319,6 +319,8 @@ if __name__ == "__main__":
     N_EPOCHS = 20
     CLIP = 0.1
     LEN_LOSS_WT = 5
+    SLOPE = 1e10
+    STEPS_LIMIT = 3
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('running on device: ', device)
@@ -329,19 +331,21 @@ if __name__ == "__main__":
     dec = Decoder(EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
 
     model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
-    model.load_state_dict(torch.load('./models/VESUS/gru-neutral-sad-vesus-model.pt'))
+    # model.load_state_dict(torch.load('./models/VESUS/gru-neutral-angry-vesus-model.pt'))
+    model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
 
     sos_token = np.asarray(start_end_tokens_world_80['<sos>'], np.float32)
     sos_token = torch.from_numpy(np.expand_dims(sos_token.T, axis=0)).to(device)
 
     #%% Running the model for each file in test set
-    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
-    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/sad/", "*.wav")))
+    # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-angry/test/neutral/", "*.wav")))
+    # valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-angry/test/angry/", "*.wav")))
 
-    # valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
-    # valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
+    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
+    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
 
-    output_folder       = "/home/ravi/Desktop/VESUS/neutral_sad/gru_model/"
+    # output_folder       = "/home/ravi/Desktop/VESUS/neutral_angry/gru_model/"
+    output_folder       = "/home/ravi/Desktop/CMU/voice_conversion/gru_model/"
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
@@ -361,8 +365,8 @@ if __name__ == "__main__":
                                                      sos_token, 
                                                      itk_obj, 
                                                      energy_torch_cuda, 
-                                                     slope=1e10, 
-                                                     steps_limit=3)
+                                                     slope=SLOPE, 
+                                                     steps_limit=STEPS_LIMIT)
             prob_cords_attn = path_histogram(cords_attn)
             # print('Attention model ', prob_cords_attn)
     
@@ -416,11 +420,11 @@ if __name__ == "__main__":
     
             # Constrained DTW mechanism
             cost = pairwise_distances(tar_mfc.T, src_mfc.T, metric='cosine')
-            mask = itk_obj.itakura_mask(src_mfc.shape[1], tar_mfc.shape[1], max_slope=1.25)
+            mask = itk_obj.itakura_mask(src_mfc.shape[1], tar_mfc.shape[1], max_slope=SLOPE)
             mask = (1 - mask) * 1e10
             cost += mask
             acc_mat = itk_obj.accumulated_cost_matrix(cost)
-            cords_dtw = itk_obj.return_constrained_path(acc_mat, steps_limit=1)
+            cords_dtw = itk_obj.return_constrained_path(acc_mat, steps_limit=STEPS_LIMIT)
             prob_cords_dtw = path_histogram(cords_dtw)
             # print('DTW model ', prob_cords_dtw)
     
@@ -449,10 +453,11 @@ if __name__ == "__main__":
             print('\n', src_wavfile)
         
         except Exception as ex:
-            print(ex)
+            print('\n', ex)
             pass
 
-    with open("/home/ravi/Desktop/VESUS/neutral_sad/gru_results.pkl", "wb") as f:
+    # with open("/home/ravi/Desktop/VESUS/neutral_angry/gru_results.pkl", "wb") as f:
+    with open("/home/ravi/Desktop/CMU/voice_conversion/gru_results.pkl", "wb") as f:
         pickle.dump({'len_pred':len_pred_array, 
                      'kl':kl_array, 
                      'edit':eddist_array}, f)
