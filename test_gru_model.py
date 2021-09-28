@@ -330,7 +330,7 @@ if __name__ == "__main__":
     model = Seq2Seq(enc, dec, MAXLEN, device).to(device)
     model.load_state_dict(torch.load('./models/CMU/gru-vc-model.pt'))
 
-    sos_token = start_end_tokens_world_80['<sos>']
+    sos_token = np.asarray(start_end_tokens_world_80['<sos>'], np.float32)
     sos_token = torch.from_numpy(np.expand_dims(sos_token.T, axis=0)).to(device)
 
 #%%
@@ -356,7 +356,7 @@ if __name__ == "__main__":
         (src_f0, src_sp, src_ap) = extract_world_features(src_wavfile, hp)
         energy, _ = extract_filterbank_features(src_wavfile, hp)
         
-        energy_torch_cuda = torch.from_numpy(energy).to(device)
+        energy_torch_cuda = torch.from_numpy(np.transpose(energy, [1,0,2])).to(device)
         attention, cords_attn = compute_dtw_path(model, 
                                                  sos_token, 
                                                  itk_obj, 

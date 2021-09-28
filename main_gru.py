@@ -244,47 +244,51 @@ class Seq2Seq(nn.Module):
             input = trg[t:t+1] if teacher_force else output
 
         return outputs[1:,:,:], attention[:,1:,:], pred_len
-    
+
     def ar_decode(self, src, sos_token):
         
         #src = [src_len, batch_size, emb_dim]
         #sos_token = [1, batch_size, emb_dim]
         #teacher forcing ratio will be 1 here
         
-        batch_size = src.shape[1]
-        src_len = src.shape[1]
-        emb_dim = src.shape[2]
+        self.eval()
         
-        #tensor to store decoder outputs
-        outputs = torch.zeros(1, batch_size, emb_dim).to(self.device)
-        
-        #tensor to store attention
-        attention = torch.zeros(batch_size, 1, src_len).to(self.device)
-        
-        #encoder_outputs and hidden
-        #converted pred_len from ratio to #frames
-        encoder_outputs, hidden, pred_len = self.encoder(src)
-        trg_len = min(self.maxlen, int(src_len*pred_len))
-        
-        input = sos_token
-        
-        for t in range(1, trg_len):
-            
-            #insert input token embedding, previous hidden state and all encoder hidden states
-            #receive output tensor (predictions) and new hidden state
-            output, hidden, attn = self.decoder(input, hidden, encoder_outputs)
-            
-            #place predictions in a tensor holding predictions for each token
-            outputs[t:t+1] = output
-            
-            #place attn in attention matrix
-            attention = torch.cat((attention, attn), dim = 1)
+        with torch.no_grad():
 
-            #no teacher forcing, use predicted token
-            input = output
+            batch_size = src.shape[1]
+            src_len = src.shape[0]
+            emb_dim = src.shape[2]
+            
+            #tensor to store decoder outputs
+            outputs = torch.zeros(1, batch_size, emb_dim).to(self.device)
+            
+            #tensor to store attention
+            attention = torch.zeros(batch_size, 1, src_len).to(self.device)
+            
+            #encoder_outputs and hidden
+            #converted pred_len from ratio to #frames
+            encoder_outputs, hidden, pred_len = self.encoder(src)
+            
+            trg_len = min(self.maxlen, int(src_len*pred_len))
+            
+            input = sos_token
+            
+            for t in range(1, trg_len):
+                
+                #insert input token embedding, previous hidden state and all encoder hidden states
+                #receive output tensor (predictions) and new hidden state
+                output, hidden, attn = self.decoder(input, hidden, encoder_outputs)
+                
+                #place predictions in a tensor holding predictions for each token
+                outputs[t:t+1] = output
+                
+                #place attn in attention matrix
+                attention = torch.cat((attention, attn), dim = 1)
 
-        return outputs[1:,:,:], attention[:,1:,:]
+                #no teacher forcing, use predicted token
+                input = output
 
+            return outputs[1:,:,:], attention[:,1:,:]
 
 #%% Training and evaluation function definition
 def train(model, iterator, optimizer, criterion, clip, 
