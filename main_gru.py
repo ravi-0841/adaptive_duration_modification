@@ -259,9 +259,6 @@ class Seq2Seq(nn.Module):
             src_len = src.shape[0]
             emb_dim = src.shape[2]
             
-            #tensor to store decoder outputs
-            outputs = torch.zeros(1, batch_size, emb_dim).to(self.device)
-            
             #tensor to store attention
             attention = torch.zeros(batch_size, 1, src_len).to(self.device)
             
@@ -269,7 +266,10 @@ class Seq2Seq(nn.Module):
             #converted pred_len from ratio to #frames
             encoder_outputs, hidden, pred_len = self.encoder(src)
             
-            trg_len = min(self.maxlen, int(src_len*pred_len))
+            trg_len = max(0, min(self.maxlen, int(src_len*pred_len)))
+            
+            #tensor to store decoder outputs
+            outputs = torch.zeros(trg_len, batch_size, emb_dim).to(self.device)
             
             input = sos_token
             
@@ -288,7 +288,7 @@ class Seq2Seq(nn.Module):
                 #no teacher forcing, use predicted token
                 input = output
 
-            return outputs[1:,:,:], attention[:,1:,:]
+            return outputs[1:,:,:].cpu().numpy(), attention[:,1:,:].cpu().numpy()
 
 #%% Training and evaluation function definition
 def train(model, iterator, optimizer, criterion, clip, 
