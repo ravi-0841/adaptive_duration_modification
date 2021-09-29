@@ -22,7 +22,7 @@ import random
 import argparse
 
 from convolutional_assets.encoder import Encoder
-from convolutional_assets.decoder_noresidual_ablation import Decoder
+from convolutional_assets.decoder_nomask_ablation import Decoder
 from convolutional_assets.seq2seq import Seq2Seq
 from convolutional_assets.train_evaluate import TrainingEval
 
@@ -159,7 +159,7 @@ def train_eval_model(args):
     # create itakura object
     itakura_object = ItakuraParallelogram()
     
-    output_dir = os.path.join("./outputs/CMU/convolutional/noresidual_ablation", EMO_PAIR, 
+    output_dir = os.path.join("./outputs/CMU/convolutional/nomask_ablation", EMO_PAIR, 
                             "layers-{0}-hid-{1}".format(ENC_LAYERS, HIDDEN_DIM))
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     parser.add_argument("--sinusoid_encoding", type = bool, help = "Use sinusoidal encoding or not", default = True)
     parser.add_argument("--model_dir", type = str, help = "model directory", default = "./models/CMU")
     # parser.add_argument("--model_name", type = str, help = "model name", default = "vesus-convolutional-model-5ms-sum-drop-9.pt")
-    parser.add_argument("--model_name", type = str, help = "model name", default = "cmu-convolutional-model-noresidual-ablation.pt")
+    parser.add_argument("--model_name", type = str, help = "model name", default = "cmu-convolutional-model-nomask-ablation.pt")
 
     args = parser.parse_args()
 

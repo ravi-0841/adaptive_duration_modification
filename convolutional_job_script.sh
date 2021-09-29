@@ -13,6 +13,6 @@ module load anaconda
 cd $HOME/data/ravi/adaptive_duration_modification
 conda activate /work-zfs/avenka14/ravi/conda_envs/seq2seq_3.7
 
-python3.7 main_convolutional_noresidue_ablations.py --hidden_dim 256 --encoder_layers 10 --decoder_layers 10 --emotion_pair $1
+python3.7 main_convolutional_nomask_ablations.py --hidden_dim 256 --encoder_layers 10 --decoder_layers 10 --emotion_pair $1
 
 conda deactivate
