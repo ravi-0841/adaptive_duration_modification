@@ -427,7 +427,7 @@ if __name__ == "__main__":
             prob_cords_dtw = path_histogram(cords_dtw)
             # print('DTW model ', prob_cords_dtw)
 
-            # pylab.subplot(122) #224
+            pylab.subplot(122) #224
             pylab.imshow(np.log10(1/pairwise_distances(tar_mfc.T, src_mfc.T, metric='cosine') + 1e-10))
             pylab.plot(cords_dtw[0,:], cords_dtw[1,:], 'r-', linewidth=2.)
             pylab.axis('off')
