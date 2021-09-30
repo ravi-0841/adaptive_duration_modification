@@ -103,23 +103,23 @@ def train_eval_model(args):
     print(f'The model has {count_parameters(model):,} trainable parameters')
     
 #%% Generating train, valid and test iterator
-    train_data_iterator = LoadData(pkl_file = './data/CMU/cmu_train_world_mvn_5ms.pkl', 
-                                    batch_size=BATCH_SIZE, device=device, 
-                                    slope=SLOPE, augment=True, padwith=PAD_IDX)
-    valid_data_iterator = LoadData(pkl_file = './data/CMU/cmu_valid_world_mvn_5ms.pkl', 
-                                    batch_size=1, device=device, 
-                                    slope=SLOPE, augment=False, padwith=PAD_IDX)
-#    train_data_iterator = LoadData(pkl_file = './data/VESUS/train_'+EMO_PAIR+'_world_mvn_5ms.pkl', 
+#    train_data_iterator = LoadData(pkl_file = './data/CMU/cmu_train_world_mvn_5ms.pkl', 
 #                                    batch_size=BATCH_SIZE, device=device, 
 #                                    slope=SLOPE, augment=True, padwith=PAD_IDX)
-#    valid_data_iterator = LoadData(pkl_file = './data/VESUS/valid_'+EMO_PAIR+'_world_mvn_5ms.pkl', 
+#    valid_data_iterator = LoadData(pkl_file = './data/CMU/cmu_valid_world_mvn_5ms_new.pkl', 
 #                                    batch_size=1, device=device, 
 #                                    slope=SLOPE, augment=False, padwith=PAD_IDX)
+    train_data_iterator = LoadData(pkl_file = './data/VESUS/train_'+EMO_PAIR+'_world_mvn_5ms.pkl', 
+                                    batch_size=BATCH_SIZE, device=device, 
+                                    slope=SLOPE, augment=True, padwith=PAD_IDX)
+    valid_data_iterator = LoadData(pkl_file = './data/VESUS/valid_'+EMO_PAIR+'_world_mvn_5ms.pkl', 
+                                    batch_size=1, device=device, 
+                                    slope=SLOPE, augment=False, padwith=PAD_IDX)
 
     print("Number of batches: {}".format(train_data_iterator.batch_count()))
 
 #%% Training, computing validation loss, and saving model
-    # train_eval.model.load_state_dict(torch.load("./models/CMU/soft_sampling/layers_{0}_hid_{1}-cmu-convolutional-model.pt".format(ENC_LAYERS, HIDDEN_DIM)))
+    train_eval.model.load_state_dict(torch.load("./models/CMU/act_sampling/layers_{0}_hid_{1}-cmu-convolutional-model-noresidual-ablation.pt".format(ENC_LAYERS, HIDDEN_DIM)))
 
     best_valid_loss = float('inf')
 
@@ -159,7 +159,7 @@ def train_eval_model(args):
     # create itakura object
     itakura_object = ItakuraParallelogram()
     
-    output_dir = os.path.join("./outputs/CMU/convolutional/noresidual_ablation", EMO_PAIR, 
+    output_dir = os.path.join("./outputs/VESUS/convolutional/noresidual_ablation", EMO_PAIR, 
                             "layers-{0}-hid-{1}".format(ENC_LAYERS, HIDDEN_DIM))
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description = "Convolutional model parameters")
     
-    parser.add_argument("--emotion_pair", type = str, help = "Emotion pair", default = "act_sampling") #neutral_angry
+    parser.add_argument("--emotion_pair", type = str, help = "Emotion pair", default = "neutral_angry") #neutral_angry
     parser.add_argument("--embed_dim", type = int, help = "Embedding dimension or feature dimension", default = 80)
     parser.add_argument("--hidden_dim", type = int, help = "Projection dimension", default = 256)
     parser.add_argument("--encoder_layers", type = int, help = "Number of encoder layers", default = 4)
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument("--decoder_kernel", type = int, help = "Conv. kernel size in decoder", default = 3)
     parser.add_argument("--encoder_dropout", type = float, help = "Dropout in encoder", default = 0.2)
     parser.add_argument("--decoder_dropout", type = float, help = "Dropout in decoder", default = 0.2)
-    parser.add_argument("--learning_rate", type = float, help = "Optimizer learning rate", default = 0.0001) #0.0001/CMU 0.00005/VESUS
+    parser.add_argument("--learning_rate", type = float, help = "Optimizer learning rate", default = 0.00005) #0.0001/CMU 0.00005/VESUS
     parser.add_argument("--pad_with", type = int, help = "Padding number", default = 10)
     parser.add_argument("--itakura_slope", type = float, help = "slope of the itakura mask", default = 1.25)
     parser.add_argument("--maxlen", type = int, help = "Maximum length of sequence", default = 1400)
@@ -213,9 +213,9 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type = int, help = "Minibatch size", default = 16) #8
     parser.add_argument("--grad_clip", type = float, help = "Gradient clip value", default = 0.1)
     parser.add_argument("--sinusoid_encoding", type = bool, help = "Use sinusoidal encoding or not", default = True)
-    parser.add_argument("--model_dir", type = str, help = "model directory", default = "./models/CMU")
+    parser.add_argument("--model_dir", type = str, help = "model directory", default = "./models/VESUS")
     # parser.add_argument("--model_name", type = str, help = "model name", default = "vesus-convolutional-model-5ms-sum-drop-9.pt")
-    parser.add_argument("--model_name", type = str, help = "model name", default = "cmu-convolutional-model-noresidual-ablation.pt")
+    parser.add_argument("--model_name", type = str, help = "model name", default = "vesus-convolutional-model-noresidual-ablation.pt")
 
     args = parser.parse_args()
 
