@@ -335,15 +335,19 @@ if __name__ == "__main__":
                                        device, GRAD_CLIP, MAXLEN, 
                                        PAD_SIGNATURE, False)
 
-    train_eval.model.load_state_dict(torch.load('./models/CMU/soft_sampling/layers_{}_hid_{}-cmu-convolutional-model.pt'.format(ENC_LAYERS, 
+    train_eval.model.load_state_dict(torch.load('/home/ravi/Desktop/adaptive_duration_modification/models/CMU/' \
+                                                    + 'layers_{}_hid_{}-cmu-convolutional-model-nomask-ablation.pt'.format(ENC_LAYERS, 
                                                                                                                         HIDDEN_DIM)))
-    valid_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
-    valid_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
+    # train_eval.model.load_state_dict(torch.load('/home/ravi/Desktop/adaptive_duration_modification/models/VESUS/' \
+    #                                             + 'neutral_sad/layers_{}_hid_{}-vesus-convolutional-model-noresidual-ablation.pt'.format(ENC_LAYERS, 
+    #                                                                                                                     HIDDEN_DIM)))
+    
+    test_src_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/source/", "*.wav")))
+    test_tar_folder    = sorted(glob(os.path.join("/home/ravi/Desktop/adaptive_duration_modification/data/CMU-ARCTIC/test/target/", "*.wav")))
+    # test_src_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/neutral/", "*.wav")))
+    # test_tar_folder    = sorted(glob(os.path.join("/home/ravi/Downloads/Emo-Conv/neutral-sad/test/sad/", "*.wav")))
 
-    output_folder       = "/home/ravi/Desktop/CMU/voice_conversion/cmu_conv_model_{}_{}-{}-{}/".format(ENC_LAYERS, 
-                                                                                                      HIDDEN_DIM, 
-                                                                                                      SLOPE, 
-                                                                                                      STEPS_LIMIT)
+    output_folder       = "/home/ravi/Desktop/CMU/voice_conversion/cmu_nomask_conv_model/"
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
@@ -351,7 +355,7 @@ if __name__ == "__main__":
     eddist_array        = list()
     len_pred_array      = list()
     
-    for (src_wavfile, tar_wavfile) in tqdm(zip(valid_src_folder, valid_tar_folder)):
+    for (src_wavfile, tar_wavfile) in tqdm(zip(test_src_folder, test_tar_folder)):
         
         # src_wavfile = '/home/ravi/Downloads/Emo-Conv/neutral-angry/valid/neutral/233.wav'
         
@@ -449,11 +453,11 @@ if __name__ == "__main__":
         # print(pred_len, tar_len, kl_div, sm.ratio())
         print('\n', src_wavfile)
 
-        # with open("/home/ravi/Desktop/CMU_kl_results.pkl", "wb") as f:
-        #     pickle.dump({'kl':kl_array, 
-        #                  'edit':eddist_array, 
-        #                  'len_pred':len_pred_array}, f)
-        #     f.close()
+    with open("/home/ravi/Desktop/CMU/cmu_nomask_results.pkl", "wb") as f:
+        pickle.dump({'kl':kl_array, 
+                      'edit':eddist_array, 
+                      'len_pred':len_pred_array}, f)
+        f.close()
     
 
 #%% DTW Comparison
